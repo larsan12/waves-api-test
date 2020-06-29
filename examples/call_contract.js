@@ -60,6 +60,7 @@ const fetch = (url, options = {}) => {
     };
 
 
+    // метод waves-api на вызов контракта и обработа ответа
     try {
       const result = await Waves.API.Node.transactions.broadcastFromClientAddress('dockerCallV2', data, seed.keyPair);
       console.log('Success!')
