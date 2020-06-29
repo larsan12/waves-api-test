@@ -30,7 +30,7 @@ const fetch = (url, options = {}) => {
       minimumSeedLength: 25,
       // включаем гост криптографию
       crypto: 'gost',
-      // байт сети - взяли из конфина ноды
+      // байт сети - взяли из конфига ноды
       networkByte: chainId.charCodeAt(0),
     };
 
