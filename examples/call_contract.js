@@ -60,8 +60,15 @@ const fetch = (url, options = {}) => {
     };
 
 
-    // метод waves-api на вызов контракта и обработа ответа
+    // методы waves-api
     try {
+      // метод waves-api на подписание транзакции вызова контракта
+      const signedTx = await Waves.API.Node.transactions.sign('dockerCallV2', data, seed.keyPair);
+      // подписанную транзакцию отправлять на ноду в эндпоинт /transactions/broadcast
+      console.log('Signed tx: ')
+      console.log(signedTx)
+
+      // метод waves-api на вызов контракта - сразу подписывает и отправляет транзакцию
       const result = await Waves.API.Node.transactions.broadcastFromClientAddress('dockerCallV2', data, seed.keyPair);
       console.log('Success!')
       console.log(result)
