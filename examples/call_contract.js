@@ -5,7 +5,11 @@ const nodeFetch = require('node-fetch');
 
 // CONFIG:
 // адресс ноды
-const NODE_ADDRESS = 'https://obama.vostokservices.com/node-0';
+const NODE_ADDRESS = 'https://obama.vostokservices.com/nodeAddress';
+
+// id контракта, то есть для начала нужно создать контракт на основе доступных образов
+// как создать контракт - сделаем отдельный example
+const contractId = 'FV9hupg7b2fMBGAaS4LXbes5NFJUswViWcdYKAXCujWo'
 
 // фраза для адреса с ролью contract_developer для возможности публикации и вызовов контрактов
 // подробнее об управлению ролями https://docs.wavesenterprise.com/ru/1.2.2/how-to-use/role-management.html
@@ -21,8 +25,8 @@ const fetch = (url, options = {}) => {
 
 (async () => {
 
-    // достаём байт сети из конфига ноды
-    const { chainId } = await (await fetch(`${NODE_ADDRESS}/node/config`)).json();
+    // достаём байт сети из конфига ноды и комиссию
+    const { chainId, minimumFee } = await (await fetch(`${NODE_ADDRESS}/node/config`)).json();
 
     const initialConfiguration = {
       nodeAddress: NODE_ADDRESS,
@@ -47,17 +51,15 @@ const fetch = (url, options = {}) => {
     const data = {
       senderPublicKey: seed.keyPair.publicKey,
       authorPublicKey: seed.keyPair.publicKey,
-      // id контракта, то есть для начала нужно создать контракт на основе доступных образов
-      // как создать контракт - сделаем отдельный example
-      contractId: 'FV9hupg7b2fMBGAaS4LXbes5NFJUswViWcdYKAXCujWo',
+      contractId,
       // версия контракта - обычно 1, если не меняли контракт
       contractVersion: 1,
       timestamp: Date.now(),
       // параметры вызовов контракта, для голования будет например инфа - за кого проголосовали
       // для параметров и вызова контракта голосования сделаем отдельный example
       params: [],
-      // фиксированная комиссия - 1 вест
-      fee: 10000000,
+      // фиксированная комиссия из конфига ноды
+      fee: minimumFee[104]
     };
 
 
