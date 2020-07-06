@@ -109,5 +109,4 @@ const fetch = (url, options = {}) => {
     console.log(`Error: ${err.data.error} Reason: ${err.data.message}`)
   }
 
-
 })();
