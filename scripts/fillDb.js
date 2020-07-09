@@ -4,7 +4,7 @@ const randomstring = require('randomstring');
 
 const TIMES_TO_DUPLICATE = 20
 
-const txs = [3, 4, 5, 6, 8, 9, 10, 13, 14, 15, 102, 103, 106, 107, 111, 112, 113, 114]
+const txs = [4, 5, 6, 8, 9, 10, 13, 14, 15, 102, 103, 106, 107, 111, 112, 113, 114]
 
 class Storage {
   constructor (config) {
