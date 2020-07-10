@@ -3,6 +3,7 @@ const knex = require('knex')({client: 'pg'})
 const randomstring = require('randomstring');
 
 const TIMES_TO_DUPLICATE = 20
+const PARTITION = 10000
 
 const txs = [4, 5, 6, 8, 9, 10, 13, 14, 15, 102, 103, 106, 107, 111, 112, 113, 114]
 
@@ -39,7 +40,7 @@ const target = new Storage({
     minTime = new Date(minTime)
 
     const timeDiff = maxTime.getTime() - minTime.getTime()
-
+    console.log('start')
 
     // BLOCKS
     const blocks = await target.query('SELECT * from blocks')
@@ -94,69 +95,86 @@ async function fillTx(table, maxHeight, timeDiff) {
 }
 
 async function fill104(maxHeight, timeDiff) {
-  const txs = await target.query(`
-      SELECT t.*, p.*, r.*, p.position_in_tx as pp, r.position_in_tx as rr
-        FROM txs_104 as t
-        LEFT JOIN txs_104_params as p ON t.id = p.tx_id
-        LEFT JOIN txs_104_results as r ON t.id = r.tx_id
+  let iteration = 0
+  while (true) {
+    const txs = await target.query(`
+      WITH txs as (
+        SELECT tx.*
+          FROM txs_104 as tx
+          WHERE height < ${maxHeight}
+          ORDER by height ASC
+          LIMIT ${PARTITION} OFFSET ${iteration * PARTITION}
+      )
+      SELECT *, p.position_in_tx as pp, r.position_in_tx as rr
+        FROM txs
+        LEFT JOIN txs_104_params as p ON txs.id = p.tx_id
+        LEFT JOIN txs_104_results as r ON txs.id = r.tx_id
     `);
-  if (txs.length) {
-    for (let i = 1; i <= TIMES_TO_DUPLICATE; i++) {
-      const newTxs = []
-      const txsResults = []
-      const txsParams = []
-      txs.forEach(t => {
-        const {
-          tx_id,
-          param_key,
-          param_type,
-          param_value_integer,
-          param_value_boolean,
-          param_value_binary,
-          param_value_string,
-          result_key,
-          result_type,
-          result_value_integer,
-          result_value_boolean,
-          result_value_binary,
-          result_value_string,
-          position_in_tx,
-          pp,
-          rr,
-          ...tx
-        } = t
-        const trx = getNewTx(tx, i, maxHeight, timeDiff)
-        if (param_key) {
-          txsParams.push({
-            tx_id: trx.id,
+    if (txs.length) {
+      for (let i = 1; i <= TIMES_TO_DUPLICATE; i++) {
+        const newTxs = {}
+        const txsResults = {}
+        const txsParams = {}
+        txs.forEach(t => {
+          const {
+            tx_id,
             param_key,
             param_type,
             param_value_integer,
             param_value_boolean,
             param_value_binary,
             param_value_string,
-            position_in_tx: pp
-          })
-        }
-        if (result_key) {
-          txsResults.push({
-            tx_id: trx.id,
             result_key,
             result_type,
             result_value_integer,
             result_value_boolean,
             result_value_binary,
             result_value_string,
-            position_in_tx: pp
-          })
-        }
-        newTxs.push(trx)
-      })
-      await target.query(knex('txs_104').insert(newTxs).toString())
-      await target.query(knex('txs_104_params').insert(txsParams).toString())
-      await target.query(knex('txs_104_results').insert(txsResults).toString())
-      console.log(`Table txs_104 iteration ${i} done`)
+            position_in_tx,
+            pp,
+            rr,
+            ...tx
+          } = t
+          const trx = getNewTx(tx, i, maxHeight, timeDiff)
+          if (param_key) {
+            txsParams[trx.id + pp] = {
+              tx_id: trx.id,
+              param_key,
+              param_type,
+              param_value_integer,
+              param_value_boolean,
+              param_value_binary,
+              param_value_string,
+              position_in_tx: pp
+            }
+          }
+          if (result_key) {
+            txsResults[trx.id + rr] = {
+              tx_id: trx.id,
+              result_key,
+              result_type,
+              result_value_integer,
+              result_value_boolean,
+              result_value_binary,
+              result_value_string,
+              position_in_tx: rr
+            }
+          }
+          newTxs[trx.id] = trx
+        })
+        const arrayTx = Object.keys(newTxs).map(key => newTxs[key]);
+        const arrayP = Object.keys(txsParams).map(key => txsParams[key]);
+        const arrayR = Object.keys(txsResults).map(key => txsResults[key]);
+        await target.query(knex('txs_104').insert(arrayTx).toString())
+        await target.query(knex('txs_104_params').insert(arrayP).toString())
+        await target.query(knex('txs_104_results').insert(arrayR).toString())
+        console.log(`Table txs_104 iteration ${iteration} duplication ${i} done`)
+      }
+    } else {
+      break;
     }
+    iteration++;
+    console.log(iteration)
   }
 }
 
@@ -168,7 +186,7 @@ async function fill12(maxHeight, timeDiff) {
     `);
   if (txs.length) {
     for (let i = 1; i <= TIMES_TO_DUPLICATE; i++) {
-      const newTxs = []
+      const newTxs = {}
       const txsData = []
       txs.forEach(t => {
         const {
@@ -195,9 +213,10 @@ async function fill12(maxHeight, timeDiff) {
             position_in_tx,
           })
         }
-        newTxs.push(trx)
+        newTxs[trx.index] = trx
       })
-      await target.query(knex('txs_12').insert(newTxs).toString())
+      const arrayTx = Object.keys(newTxs).map(key => newTxs[key]);
+      await target.query(knex('txs_12').insert(arrayTx).toString())
       await target.query(knex('txs_12_data').insert(txsData).toString())
       console.log(`Table txs_12 iteration ${i} done`)
     }
@@ -213,7 +232,7 @@ async function fill11(maxHeight, timeDiff) {
 
   if (txs.length) {
     for (let i = 1; i <= TIMES_TO_DUPLICATE; i++) {
-      const newTxs = []
+      const newTxs = {}
       const txsData = []
       txs.forEach(t => {
         const {
@@ -232,9 +251,10 @@ async function fill11(maxHeight, timeDiff) {
             position_in_tx,
           })
         }
-        newTxs.push(trx)
+        newTxs[trx.index] = trx
       })
-      await target.query(knex('txs_11').insert(newTxs).toString())
+      const arrayTx = Object.keys(newTxs).map(key => newTxs[key]);
+      await target.query(knex('txs_11').insert(arrayTx).toString())
       await target.query(knex('txs_11_transfers').insert(txsData).toString())
       console.log(`Table txs_11 iteration ${i} done`)
     }
